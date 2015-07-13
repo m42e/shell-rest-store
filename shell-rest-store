@@ -1,0 +1,100 @@
+local URLBASE="https://example.org"
+
+_st_urlencode() {
+   setopt localoptions extendedglob
+   input=( ${(s::)1} )
+   print ${(j::)input/(#b)([^A-Za-z0-9_.\!~*\'\(\)-\/])/%${(l:2::0:)$(([##16]#match))}}
+}
+
+_st_get_hostname(){
+   if [[ "$OSTYPE" == "win32" ]]
+   then
+      hostname=`hostname | tr -d '\040\011\012\015'`
+   else
+      if [[ "$OSTYPE" == "darwin"* ]]
+      then
+         hostname=`hostname -s | tr -d '\040\011\012\015'`
+      else
+         hostname=`hostname | tr -d '\040\011\012\015'`
+      fi
+   fi
+   echo $hostname
+}
+
+_st_prepare(){
+   hostname=$(_st_get_hostname)
+   target=$hostname
+   meta=
+   if [[ $# > 0 ]]; then
+      target=$1
+   fi
+   if [[ $# > 1 ]]; then
+      meta=$(_st_urlencode "/$2")
+   fi
+}
+
+_st_actiontmp(){
+   action=$1
+   data=$2
+   shift 2
+   _st_prepare $*
+   echo $data | curl -X POST -F "file=@-" $(_st_geturl $action $target $meta) -k -s
+   if [[ ! -t 1 ]];then 
+      echo $data
+   fi
+}
+
+_st_actionget(){
+   format=$1
+   shift
+   _st_prepare $*
+   curl -H "Accept: $format" $URLBASE/get/$target -k 2>/dev/null 
+}
+
+_st_geturl(){
+   echo $URLBASE/$1/$2/meta/from/$USER%40$hostname$3
+}
+
+savetmp(){
+   data=`cat`
+   _st_actiontmp put $data $*
+}
+
+prependtmp(){
+   data=`cat`
+   _st_actiontmp prepend $data $*
+}
+
+appendtmp(){
+   data=`cat`
+   _st_actiontmp append $data $*
+}
+
+savetmpfile(){
+   file=$1
+   shift
+   _st_prepare $*
+   curl -X POST -F "file=@$file" $(_st_geturl put $target $meta) -k 
+   if [[ ! -t 1 ]];then 
+      echo $data
+   fi
+}
+
+gettmp(){
+   _st_actionget text/text $*
+}
+
+gettmpjson(){
+   _st_actionget text/json $*
+}
+
+newtmp(){
+   if [[ $# > 0 ]]; then
+      name=$1
+   else
+      name=$(_st_get_hostname)
+   fi
+   curl $URLBASE/newid/$name -k -s
+}
+
+# vim: ft=zsh :
