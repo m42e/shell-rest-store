@@ -76,7 +76,7 @@ savetmpfile(){
    _st_prepare $*
    curl -X POST -F "file=@$file" $(_st_geturl put $target $meta) -k 
    if [[ ! -t 1 ]];then 
-      echo $data
+      cat $file
    fi
 }
 
